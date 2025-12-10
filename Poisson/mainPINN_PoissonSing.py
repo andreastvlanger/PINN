@@ -1,14 +1,23 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
-Created on Sun Dec  8 17:19:05 2024
+============================================================================
+Copyright (C) 2025  Andreas Langer
 
-@author: andreas langer
-"""
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
 
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+    
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+============================================================================    
+
+GNU GENERAL PUBLIC LICENSE Version 3
+
 Created on Sun Dec  8 15:51:47 2024
 
 @author: andreas langer
@@ -23,14 +32,12 @@ import neural_network as nn
 import custom_loss as cl
 import trainer as tr
 import PoissonFDM
-#import PoissonPINN
 import time
 
 
 params = {
     'Problem': 'PoissonSingularity',
-    'DiscretizationModel': 'PINN', # FDM = finite difference method; FDPINN = Neural Network with FD operators; PINN = Neural Network with cont. operators
-    
+    'DiscretizationModel': 'PINN', 
     'epochs': 200000,
     'save_plots': True,  # Whether to save plots or not
     'plot_interval': 500,  # Interval to save plots
@@ -43,7 +50,6 @@ bc = False # If False boundary conditions are not included in Neural Networks
 params['bc'] = bc
 l2_reg = 0
 params['l2_reg'] = l2_reg
-#lambda_boundary=1e2 # default value!!!!!!!!!
 params['lambda_boundary'] = 10000
 
 if params['skip']:
@@ -91,7 +97,7 @@ def cut_mask(x, y):
 def boundary_mask(x, y):
     #bc = tf.where((tf.abs(x) == 1) | (tf.abs(y) == 1),0.0, 1.0 )
     bc = (1 - x**2) * (1 - y**2) #Works quite good here!
-    return bc * cut_mask(x,y)#(1 - x**2) * (1 - y**2) * cut_mask(x, y)
+    return bc * cut_mask(x,y)
 
 if bc:
     model = nn.BoundaryConditionNN(
@@ -114,16 +120,9 @@ else:
         use_bias_constraint= params['use_bias_constraint'],
         skip=params['skip'], skip_every_n=params['skip_every_n']
     )
-    # Initialize the model
-    # model = PoissonPINN.PoissonSolverNN(
-    #     hidden_layers,
-    #     activations,
-    #     bc = bc
-    # )
+    
 
 optimizer = tf.keras.optimizers.Adam(learning_rate=params['learning_rate'])
-
-
 
 lx=-1
 rx=1
@@ -190,8 +189,6 @@ params['X'] = X
 params['Y'] = Y
 
 
-#best_model, best_solution, data = trainer.train(xy_pad, b, params, A)
-
 
 start_time = time.time()
 ###############################################################################
@@ -228,10 +225,7 @@ u_pred = np.reshape(pred,(Nx_hd, Nx_hd))
 
 plt.figure()
 plt.pcolormesh(X_hd, Y_hd, u_pred, shading='auto', cmap='rainbow')
-plt.colorbar()#label='u')
-#plt.xlabel('X-axis')
-#plt.ylabel('Y-axis')
-#plt.title('Solution u in 2D')
+plt.colorbar()
 plt.gca().set_aspect('equal', adjustable='box')
 plt.savefig(f"{params['log_dir']}/solution_hd.png", bbox_inches='tight')
 plt.show()

@@ -24,16 +24,16 @@ Created on Sun Dec  8 13:05:20 2024
 """
 
 import tensorflow as tf
+import numpy as np
 
 
 @tf.keras.utils.register_keras_serializable()
 class NeuralNetwork(tf.keras.Model):
-    def __init__(self, hidden_layers, activations, neurons_output_layer = 1, l2_reg=1e-4, max_value=100, 
+    def __init__(self, hidden_layers, activations, neurons_output_layer = 1, 
+                 l2_reg=1e-4, max_value=100, 
                  use_kernel_constraint=True, use_bias_constraint=True,
                  skip=False, skip_every_n=2):
         '''
-        
-
         Parameters
         ----------
         hidden_layers : list of integers
@@ -78,6 +78,7 @@ class NeuralNetwork(tf.keras.Model):
             self.hidden_layers.append(tf.keras.layers.Dense(
                 neurons, 
                 activation=activation, 
+                kernel_initializer=tf.keras.initializers.GlorotUniform(seed=1234),
                 kernel_regularizer=tf.keras.regularizers.l2(l2_reg),
                 kernel_constraint=kernel_constraint, 
                 bias_constraint=bias_constraint
@@ -89,23 +90,26 @@ class NeuralNetwork(tf.keras.Model):
         self.output_layer = tf.keras.layers.Dense(
             neurons_output_layer,
             activation=None,
+            kernel_initializer=tf.keras.initializers.GlorotUniform(seed=1234),
             kernel_regularizer=tf.keras.regularizers.l2(l2_reg),
             kernel_constraint=kernel_constraint,
             bias_constraint=bias_constraint
         )
 
+    
     def call(self, inputs, training=False):
-        
-        x = inputs 
-        skip_input = x
-        hidden_layer_count = 0
+        x = inputs  # Start with inputs
         for layer in self.hidden_layers:
-            x = layer(x)
-            hidden_layer_count += 1
-            if self.skip and hidden_layer_count %self.skip_every_n == 0:
-                x +=skip_input
-                skip_input = x
-        return self.output_layer(x)
+            x = layer(x)  # Apply each hidden layer sequentially
+        outputs = self.output_layer(x)  # Return the output
+        return tf.split(outputs, num_or_size_splits=outputs.shape[1], axis=1)
+    
+    @staticmethod
+    def xavier_init(size, dtype=None):
+        in_dim = size[0]
+        out_dim = size[1]
+        xavier_stddev = np.sqrt(2 / (in_dim + out_dim))
+        return tf.Variable(tf.random.truncated_normal([in_dim, out_dim], stddev=xavier_stddev), dtype=tf.float32)
     
     def get_config(self):
         return {
@@ -122,6 +126,8 @@ class NeuralNetwork(tf.keras.Model):
     @classmethod
     def from_config(cls, config):
         return cls(**config)
+    
+    
     
 # Inherit from NeuralNetwork
 @tf.keras.utils.register_keras_serializable()
@@ -149,14 +155,16 @@ class BoundaryConditionNN(NeuralNetwork):
         x, y = inputs[:, 0], inputs[:, 1]  # Split the inputs into x and y
         
         # Call the parent class's call method to get the output without boundary conditions
-        u_tilde = super().call(inputs, training=training)
+        u_tilde, v_tilde = super().call(inputs, training=training)
         # Apply the boundary mask to enforce u = 0 on the boundary
         g = self.boundary_mask(x, y)
+        g_u = tf.reshape(2 / tf.cosh(x),(-1,1))
+        g = tf.reshape(y, (-1, 1))
         
-        g = tf.reshape(g, (-1, 1))
-        u = g * u_tilde  # Final output that satisfies the boundary condition
+        u = g_u + g * u_tilde
+        v = g * v_tilde
         
-        return u
+        return [u, v]
     
     def get_config(self):
         config = super().get_config()

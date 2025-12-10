@@ -1,6 +1,30 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
+============================================================================
+Portions of this file (save_essential_data, save_parameters) are from project
+https://github.com/andreastvlanger/DeepTV (GNU GENERAL PUBLIC LICENSE Version 3)
+
+Copyright (C) 2024  Andreas Langer, Sara Behnamian
+
+Rest of the code
+
+Copyright (C) 2025  Andreas Langer
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+    
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+============================================================================    
+
+GNU GENERAL PUBLIC LICENSE Version 3
+
 Created on Mon Nov  4 10:41:49 2024
 
 @author: andreas langer
@@ -96,134 +120,6 @@ def RHS(Nx,Ny,x,y):
     b[mask.ravel()] = 0  # Set RHS on the cut region to zero for Dirichlet condition
     
     return b
-
-# TODO: Is this anywhere needed?
-def Laplace(m1, m2, hx, hy, bc):
-    if bc=='n':
-        #homogeneous Neumann boundary condition
-        m = m1 * m2
-        E = np.ones((m1,m2))
-        e = np.reshape(E, (m,))
-        
-        E1 = np.copy(E)
-        E1[:,-1]=0
-        e1a = np.reshape(E1, (m,))
-        one_zero = np.array([0]).reshape(1,)
-        e1b = np.concatenate([one_zero, e1a[0:-1]])
-        
-        E2a = np.zeros((m1,m2))
-        E2a[[0,-1],:]=1
-        E2b = np.zeros((m1,m2))
-        E2b[:,[0,-1]]=1
-        E2 = -4*E + E2a + E2b
-        e2=np.reshape(E2,(m,))
-        
-        data = np.vstack((e, e1a, e2, e1b, e))
-        offset=np.array([-m1,-1,0,1,m1])
-        
-        LAP =  1/hx*1/hy*sp.spdiags(data, offset, m, m)
-        
-        return LAP
-    elif bc=='d':
-        #homogeneous Dirichlet boundary condition
-        m = m1 * m2
-        E = np.ones((m1,m2))
-        e = np.reshape(E, (m,))
-        
-        E1 = np.copy(E)
-        E1[:,-1]=0
-        e1a = np.reshape(E1, (m,))
-        one_zero = np.array([0]).reshape(1,)
-        e1b = np.concatenate([one_zero, e1a[0:-1]])
-        
-        E2 = -4*E
-        e2=np.reshape(E2,(m,))
-        
-        data = np.vstack((e, e1a, e2, e1b, e))
-        offset=np.array([-m1,-1,0,1,m1])
-        
-        LAP =  1/hx*1/hy*sp.diags(data, offset, shape=(m, m), format='csr')
-        return LAP
-    else:
-        pass
-    
-# TODO: Is this anywhere needed?
-def Gradientx_FD(Nx,Ny,hx,x,y):
-    # Step 1: Create main diagonal matrix with -1s inside, 1s on boundary and cut region
-    main_diag_matrix = -1*np.ones((Nx, Ny))
-    combined_mask = MaskBoundary(x, y)
-    main_diag_matrix[combined_mask] = 1
-    
-    
-    # Step 2: Create off-diagonal matrices with 1s inside, 0s on boundary and cut region
-    off_diag_matrix = np.ones((Nx, Ny))
-    off_diag_matrix[combined_mask] = 0
-    main_diag = main_diag_matrix.ravel()
-    right_diag = off_diag_matrix.ravel()[:-1]  # Shifted right by 1 (right diagonal)
-    
-    # Step 3: Assemble sparse matrix using `diags`
-    A = sp.diags([main_diag, right_diag],
-                 [0, 1], shape=(Nx * Ny, Nx * Ny), format="csr")
-    return 1/hx*A
-
-# TODO: Is this anywhere needed?
-def Gradientx_CD(Nx,Ny,hx,x,y):
-    # Step 1: Create main diagonal matrix with -1s inside, 1s on boundary and cut region
-    main_diag_matrix = 0*np.ones((Nx, Ny))
-    combined_mask = MaskBoundary(x, y)
-    main_diag_matrix[combined_mask] = 1
-    
-    
-    # Step 2: Create off-diagonal matrices with 1s inside, 0s on boundary and cut region
-    off_diag_matrix = np.ones((Nx, Ny))
-    off_diag_matrix[combined_mask] = 0
-    main_diag = main_diag_matrix.ravel()
-    right_diag = off_diag_matrix.ravel()[:-1]  # Shifted right by 1 (right diagonal)
-    left_diag = -1*off_diag_matrix.ravel()[1:]  # Shifted left by 1 (left diagonal)
-    
-    # Step 3: Assemble sparse matrix using `diags`
-    A = sp.diags([main_diag, left_diag, right_diag],
-                 [0, -1, 1], shape=(Nx * Ny, Nx * Ny), format="csr")
-    return 1/(2*hx)*A
-
-# TODO: Is this anywhere needed?
-def Gradienty_FD(Nx,Ny,hy,x,y):
-    # Step 1: Create main diagonal matrix with -1s inside, 1s on boundary and cut region
-    main_diag_matrix = -1*np.ones((Nx, Ny))
-    combined_mask = MaskBoundary(x, y)
-    main_diag_matrix[combined_mask] = 1
-    
-    
-    # Step 2: Create off-diagonal matrices with 1s inside, 0s on boundary and cut region
-    off_diag_matrix = np.ones((Nx, Ny))
-    off_diag_matrix[combined_mask] = 0
-    main_diag = main_diag_matrix.ravel()
-    right_diag = off_diag_matrix.ravel()[:-Nx]  # Shifted right by N (right diagonal)
-    
-    # Step 3: Assemble sparse matrix using `diags`
-    A = sp.diags([main_diag, right_diag],
-                 [0, Nx], shape=(Nx * Ny, Nx * Ny), format="csr")
-    return 1/hy*A
-
-# TODO: Is this anywhere needed?
-def Gradienty_CD(Nx,Ny,hy,x,y):
-    # Step 1: Create main diagonal matrix with -1s inside, 1s on boundary and cut region
-    main_diag_matrix = 0*np.ones((Nx, Ny))
-    combined_mask = MaskBoundary(x, y)
-    main_diag_matrix[combined_mask] = 1
-    
-    
-    # Step 2: Create off-diagonal matrices with 1s inside, 0s on boundary and cut region
-    off_diag_matrix = np.ones((Nx, Ny))
-    off_diag_matrix[combined_mask] = 0
-    main_diag = main_diag_matrix.ravel()
-    right_diag = off_diag_matrix.ravel()[:-Nx]  # Shifted right by N (right diagonal)
-    left_diag = -1*off_diag_matrix.ravel()[Nx:]  # Shifted left by N (left diagonal)
-    
-    # Step 3: Assemble sparse matrix using `diags`
-    A = sp.diags([main_diag, left_diag, right_diag],
-                 [0, -Nx, Nx], shape=(Nx * Ny, Nx * Ny), format="csr")
-    return 1/(2*hy)*A
     
 if __name__ == "__main__" :
     

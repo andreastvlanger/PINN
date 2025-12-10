@@ -20,12 +20,13 @@ GNU GENERAL PUBLIC LICENSE Version 3
 
 Created on Sun Dec  8 15:33:09 2024
 
-@author: andreas langer
+@author: Andreas Langer
 """
 
 import tensorflow as tf
 import matplotlib.pyplot as plt
 import numpy as np
+
 
 class Trainer:
     def __init__(self, model, optimizer, params, loss_function):
@@ -41,11 +42,7 @@ class Trainer:
             total_loss = self.loss_function(self.model, predictions, data)
         # Compute gradients with respect to the model's trainable variables
         gradients = tape.gradient(total_loss, self.model.trainable_variables)
-
-        # Check for None gradients
-        if any(g is None for g in gradients):
-            raise ValueError("Some gradients are None. Check the computational graph.")
-
+        
         # Apply gradients to update model parameters
         self.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
 
@@ -54,6 +51,7 @@ class Trainer:
     
     def train(self, x_train, data):
         params = data['params']
+        
         best_loss = float('inf')
         best_weights = None
         best_solution = None
@@ -65,14 +63,15 @@ class Trainer:
             total_loss = self.train_step(x_train, data)
             predictions = self.model(x_train, training=False)
             total_loss= self.loss_function(self.model, predictions, data)
-            
+    
             current_total_loss = total_loss.numpy()
             if current_total_loss < best_loss:
                 best_loss = current_total_loss
                 best_loss_list.append(best_loss)
                 best_loss_epoch_list.append(epoch)
                 best_weights = self.model.get_weights()
-                best_solution = predictions.numpy()
+                best_solution = (predictions[0].numpy(),predictions[1].numpy())
+                sol= np.sqrt(best_solution[0]**2 + best_solution[1]**2)
                 self.model.save_weights(f"{params['log_dir']}/best_weights_ReLU_32.weights.h5")
                 self.model.save(f"{params['log_dir']}/best_model.keras")
                 
@@ -81,23 +80,27 @@ class Trainer:
                 
                 print(f"  Best Loss so far: {best_loss}")
                 Nx = params['Nx']
-                X = params['X']
-                Y = params['Y']
-                
-                # Plot the heatmap   
+                Nt = params['Nt']
+                x = params['x_edges']
+                t = params['y_edges']
+                                
                 plt.figure()
-                plt.pcolormesh(X, Y, np.reshape(best_solution,(Nx, Nx)), shading='auto', cmap='rainbow')
+                plt.imshow(np.reshape(sol, (Nt, Nx)).T, 
+                           aspect='auto', 
+                           extent=[t.min(), t.max(), x.min(), x.max()], 
+                           cmap='YlGnBu')
                 plt.colorbar()
+                plt.xlabel("Time (t)")
+                plt.ylabel("Space (x)")
                 plt.title(f"Epoch {best_loss_epoch_list[-1]}")
-                plt.gca().set_aspect('equal', adjustable='box')
                 plt.savefig(f"{params['log_dir']}/solution{best_loss_epoch_list[-1]}.png", bbox_inches='tight')
                 plt.show()
                 plt.close()
-    
+                
         
         self.model.set_weights(best_weights)
-        data = {
+        info = {
             'best_loss_list': best_loss_list,
             'best_loss_epoch_list': best_loss_epoch_list
         }
-        return self.model, best_solution, data
+        return self.model, best_solution, info
